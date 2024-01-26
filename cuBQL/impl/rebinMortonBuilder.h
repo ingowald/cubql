@@ -38,6 +38,15 @@ namespace cuBQL {
       using vec_t = cuBQL::vec_t<float,D>;
       using box_t = cuBQL::box_t<float,D>;
       
+      inline __device__ cuBQL::vec_t<uint32_t,D> quantize(vec_t P) const
+      {
+        using vec_ui = cuBQL::vec_t<uint32_t,D>;
+
+        vec_ui cell = vec_ui((P-quantizeBias)*quantizeScale);
+        cell = min(cell,vec_ui((1<<numMortonBits<D>::value)-1));
+        return cell;
+      }
+        
       inline __device__ void init(cuBQL::box_t<float,D> centBounds)
       {
         quantizeBias
@@ -101,7 +110,7 @@ namespace cuBQL {
         cuBQL::vec_t<uint32_t,D> cell = cuBQL::vec_t<uint32_t,D>(P-quantizeBias);
         // move all relevant bits to top
         cell = cell << shlBits;
-        return cell >> (32-numMortonBits<D>::value);
+        return cell >> cuBQL::vec_t<uint32_t,D>(32-numMortonBits<D>::value);
       }
         
       /*! coefficients of `scale*(x-bias)` in the 21-bit fixed-point
@@ -199,13 +208,9 @@ namespace cuBQL {
 
     template<typename T, int D>
     __global__
-    void finishBuildState(BuildState<T,D>  *buildState);
-
-    template<>
-    __global__
-    void finishBuildState(BuildState<float,3>  *buildState)
+    void finishBuildState(BuildState<T,D>  *buildState)
     {
-      using ctx_t = BuildState<float,3>;
+      using ctx_t = BuildState<T,D>;
       using vec_t = typename ctx_t::vec_t;
       using box_t = typename ctx_t::box_t;
       using bvh_t = typename ctx_t::bvh_t;
@@ -268,97 +273,142 @@ namespace cuBQL {
        move by 32
        hex    00:       00:       00:       00:       00:       1f:       00:       00
     */
-    inline __device__
-    uint64_t shiftBits(uint64_t x, uint64_t maskOfBitstoMove, int howMuchToShift)
-    { return ((x & maskOfBitstoMove)<<howMuchToShift) | (x & ~maskOfBitstoMove); }
+    // inline __device__
+    // uint64_t shiftBits(uint64_t x, uint64_t maskOfBitstoMove, int howMuchToShift)
+    // { return ((x & maskOfBitstoMove)<<howMuchToShift) | (x & ~maskOfBitstoMove); }
     inline __device__
     uint32_t shiftBits(uint32_t x, uint32_t maskOfBitstoMove, int howMuchToShift)
     { return ((x & maskOfBitstoMove)<<howMuchToShift) | (x & ~maskOfBitstoMove); }
-    
+
     inline __device__
-    uint64_t bitInterleave21(uint64_t x)
+    uint32_t insert_two_wide_gaps(uint32_t x)
     {
       //hex    00:       00:       00:       00:       00:       10:       00:       00
-      x = shiftBits(x,0x00000000001f0000ull,32); 
+      // x = shiftBits(x,(uint32_t)0x00000000001f0000ull,32); 
       //hex     00:      00:       00:       00:       00:       00:       ff:       00
-      x = shiftBits(x,0x000000000000ff00ull,16); 
+      x = shiftBits(x,(uint32_t)0x000000000000ff00ull,16); 
       //hex    00:       f0:       00:       00:       f0:       00:       00:       f0
-      x = shiftBits(x,0x00f00000f00000f0ull,8); 
+      x = shiftBits(x,(uint32_t)0x00f00000f00000f0ull,8); 
       //hex    00:       0c:       00:       c0:       0c:       00:       c0:       0c
-      x = shiftBits(x,0x000c00c00c00c00cull,4); 
+      x = shiftBits(x,(uint32_t)0x000c00c00c00c00cull,4); 
       //hex    00:       82:       08:       20:       82:       08:       20:       82
-      x = shiftBits(x,0x0082082082082082ull,2);
+      x = shiftBits(x,(uint32_t)0x0082082082082082ull,2);
       return x;
     }
+
     inline __device__
-    uint32_t bitInterleave10(uint32_t x)
+    uint32_t insert_one_wide_gaps(uint32_t x)
     {
-      //hex     00:      00:       00:       00:       00:       00:       ff:       00
-      x = shiftBits(x,0x0000ff00,16); 
-      //hex    00:       f0:       00:       00:       f0:       00:       00:       f0
-      x = shiftBits(x,0xf00000f0,8); 
-      //hex    00:       0c:       00:       c0:       0c:       00:       c0:       0c
-      x = shiftBits(x,0x0c00c00c,4); 
-      //hex    00:       82:       04:       20:       82:       04:       20:       82
-      x = shiftBits(x,0x82082082,2);
+      // x = shiftBits(x,
+      //               (uint32_t)0b0000000000000000000000000000000011111111111111110000000000000000ull,16);
+      x = shiftBits(x,
+                    (uint32_t)0b0000000000000000111111110000000000000000000000001111111100000000ull,8);
+      x = shiftBits(x,
+                    (uint32_t)0b0000000011110000000000001111000000000000111100000000000011110000ull,4);
+      x = shiftBits(x,
+                    (uint32_t)0b0000110000001100000011000000110000001100000011000000110000001100ull,2);
+      x = shiftBits(x,
+                    (uint32_t)0b0010001000100010001000100010001000100010001000100010001000100010ull,1);
       return x;
     }
 
-    inline __device__ uint32_t interleaveBits(vec2ui bits)
+    inline __device__
+    uint32_t interleaveBits(vec2ui mortonCell)
     {
-      printf("not implemented...\n");
-      return 0;
+      return
+        (insert_one_wide_gaps(mortonCell.x) << 0)
+        |
+        (insert_one_wide_gaps(mortonCell.y) << 1);
+      // return bitInterleave11(mortonCell.x,mortonCell.y);
     }
-    
-    inline __device__ uint32_t interleaveBits(vec4ui bits)
-    {
-      uint32_t ix = bits.x;
-      uint32_t iy = bits.y;
-      uint32_t iz = bits.z;
-      uint32_t iw = bits.w;
-      ix = ((ix & 0xF0) << 12) | (ix & ~0xF0);
-      ix = ((ix & 0b000000000011000000000000001100)<<6) | (ix & ~0b000000000011000000000000001100);
-      ix = ((ix & 0b000010000000100000001000000010)<<3) | (ix & ~0b000010000000100000001000000010);
-      
-      iy = ((iy & 0xF0) << 12) | (iy & ~0xF0);
-      iy = ((iy & 0b000000000011000000000000001100)<<6) | (iy & ~0b000000000011000000000000001100);
-      iy = ((iy & 0b000010000000100000001000000010)<<3) | (iy & ~0b000010000000100000001000000010);
-      
-      iz = ((iz & 0xF0) << 12) | (iz & ~0xF0);
-      iz = ((iz & 0b000000000011000000000000001100)<<6) | (iz & ~0b000000000011000000000000001100);
-      iz = ((iz & 0b000010000000100000001000000010)<<3) | (iz & ~0b000010000000100000001000000010);
-    
-      iw = ((iw & 0xF0) << 12) | (iw & ~0xF0);
-      iw = ((iw & 0b000000000011000000000000001100)<<6) | (iw & ~0b000000000011000000000000001100);
-      iw = ((iw & 0b000010000000100000001000000010)<<3) | (iw & ~0b000010000000100000001000000010);
-    
-      return (iw << 3) | (iz << 2) | (iy << 1) | ix;
-    }
-    
-    
-    inline __device__ uint32_t interleaveBits(vec3ui mortonCell)
-    {
-      int ix = mortonCell.x;
-      int iy = mortonCell.y;
-      int iz = mortonCell.z;
-      
-      ix = ((ix & 0b000000000000000000001100000000) << 16) | (ix & ~0b000000000000000000001100000000);
-      ix = ((ix & 0b000000000000000000000011110000) <<  8) | (ix & ~0b000000000000000000000011110000);
-      ix = ((ix & 0b000000000000001100000000001100) <<  4) | (ix & ~0b000000000000001100000000001100);
-      ix = ((ix & 0b000010000010000010000010000010) <<  2) | (ix & ~0b000010000010000010000010000010);
-      
-      iy = ((iy & 0b000000000000000000001100000000) << 16) | (iy & ~0b000000000000000000001100000000);
-      iy = ((iy & 0b000000000000000000000011110000) <<  8) | (iy & ~0b000000000000000000000011110000);
-      iy = ((iy & 0b000000000000001100000000001100) <<  4) | (iy & ~0b000000000000001100000000001100);
-      iy = ((iy & 0b000010000010000010000010000010) <<  2) | (iy & ~0b000010000010000010000010000010);
-      
-      iz = ((iz & 0b000000000000000000001100000000) << 16) | (iz & ~0b000000000000000000001100000000);
-      iz = ((iz & 0b000000000000000000000011110000) <<  8) | (iz & ~0b000000000000000000000011110000);
-      iz = ((iz & 0b000000000000001100000000001100) <<  4) | (iz & ~0b000000000000001100000000001100);
-      iz = ((iz & 0b000010000010000010000010000010) <<  2) | (iz & ~0b000010000010000010000010000010);
 
-      return (iz << 2) | (iy << 1) | (ix);
+    inline __device__
+    uint32_t interleaveBits(vec3ui mortonCell)
+    {
+      return
+        (insert_two_wide_gaps(mortonCell.z) << 2) |
+        (insert_two_wide_gaps(mortonCell.y) << 1) |
+        (insert_two_wide_gaps(mortonCell.x) << 0);
     }
+
+    inline __device__
+    uint32_t interleaveBits(vec4ui mortonCell)
+    {
+      uint32_t xy = interleaveBits(vec2ui{mortonCell.x,mortonCell.y});
+      uint32_t zw = interleaveBits(vec2ui{mortonCell.z,mortonCell.w});
+      return
+        (insert_one_wide_gaps(xy) << 0) |
+        (insert_one_wide_gaps(zw) << 1);
+    }
+//     inline __device__ uint32_t interleaveBits(vec2ui bits)
+//     {
+//       printf("not implemented...\n");
+//       return 0;
+//     }
+    
+//     inline __device__ uint32_t interleaveBits(vec4ui bits)
+//     {
+//       uint32_t ix = bits.x;
+//       uint32_t iy = bits.y;
+//       uint32_t iz = bits.z;
+//       uint32_t iw = bits.w;
+// #if 1
+//       ix = interleave11(ix);
+//       iy = interleave11(iy);
+//       iz = interleave11(iz);
+//       iw = interleave11(iw);
+
+//       uint32_t ixy = ix | (iy<<1);
+//       uint32_t izw = iz | (iy<<w);
+
+//       ixy = interleave11(ixy);
+//       izw = interleave11(izw);
+//       return ixy | (izw << 1);
+// #else
+//       ix = ((ix & 0xF0) << 12) | (ix & ~0xF0);
+//       ix = ((ix & 0b000000000011000000000000001100)<<6) | (ix & ~0b000000000011000000000000001100);
+//       ix = ((ix & 0b000010000000100000001000000010)<<3) | (ix & ~0b000010000000100000001000000010);
+      
+//       iy = ((iy & 0xF0) << 12) | (iy & ~0xF0);
+//       iy = ((iy & 0b000000000011000000000000001100)<<6) | (iy & ~0b000000000011000000000000001100);
+//       iy = ((iy & 0b000010000000100000001000000010)<<3) | (iy & ~0b000010000000100000001000000010);
+      
+//       iz = ((iz & 0xF0) << 12) | (iz & ~0xF0);
+//       iz = ((iz & 0b000000000011000000000000001100)<<6) | (iz & ~0b000000000011000000000000001100);
+//       iz = ((iz & 0b000010000000100000001000000010)<<3) | (iz & ~0b000010000000100000001000000010);
+    
+//       iw = ((iw & 0xF0) << 12) | (iw & ~0xF0);
+//       iw = ((iw & 0b000000000011000000000000001100)<<6) | (iw & ~0b000000000011000000000000001100);
+//       iw = ((iw & 0b000010000000100000001000000010)<<3) | (iw & ~0b000010000000100000001000000010);
+    
+//       return (iw << 3) | (iz << 2) | (iy << 1) | ix;
+// #endif
+//     }
+    
+    
+//     inline __device__ uint32_t interleaveBits(vec3ui mortonCell)
+//     {
+//       int ix = mortonCell.x;
+//       int iy = mortonCell.y;
+//       int iz = mortonCell.z;
+      
+//       ix = ((ix & 0b000000000000000000001100000000) << 16) | (ix & ~0b000000000000000000001100000000);
+//       ix = ((ix & 0b000000000000000000000011110000) <<  8) | (ix & ~0b000000000000000000000011110000);
+//       ix = ((ix & 0b000000000000001100000000001100) <<  4) | (ix & ~0b000000000000001100000000001100);
+//       ix = ((ix & 0b000010000010000010000010000010) <<  2) | (ix & ~0b000010000010000010000010000010);
+      
+//       iy = ((iy & 0b000000000000000000001100000000) << 16) | (iy & ~0b000000000000000000001100000000);
+//       iy = ((iy & 0b000000000000000000000011110000) <<  8) | (iy & ~0b000000000000000000000011110000);
+//       iy = ((iy & 0b000000000000001100000000001100) <<  4) | (iy & ~0b000000000000001100000000001100);
+//       iy = ((iy & 0b000010000010000010000010000010) <<  2) | (iy & ~0b000010000010000010000010000010);
+      
+//       iz = ((iz & 0b000000000000000000001100000000) << 16) | (iz & ~0b000000000000000000001100000000);
+//       iz = ((iz & 0b000000000000000000000011110000) <<  8) | (iz & ~0b000000000000000000000011110000);
+//       iz = ((iz & 0b000000000000001100000000001100) <<  4) | (iz & ~0b000000000000001100000000001100);
+//       iz = ((iz & 0b000010000010000010000010000010) <<  2) | (iz & ~0b000010000010000010000010000010);
+
+//       return (iz << 2) | (iy << 1) | (ix);
+//     }
     
     template<typename T, int D>
     inline __device__

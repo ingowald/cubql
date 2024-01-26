@@ -24,6 +24,104 @@ namespace cuBQL {
     using gpuBuilder_impl::_ALLOC;
     using gpuBuilder_impl::_FREE;
     
+    template<typename T, int D> struct Quantizer;
+
+    template<int D> struct numMortonBits;
+    template<> struct numMortonBits<2> { enum { value = 31 }; };
+    template<> struct numMortonBits<3> { enum { value = 20 }; };
+    template<> struct numMortonBits<4> { enum { value = 15 }; };
+    
+    template<int D>
+    struct Quantizer<float,D> {
+      using vec_t = cuBQL::vec_t<float,D>;
+      using box_t = cuBQL::box_t<float,D>;
+      
+      inline __device__ cuBQL::vec_t<uint32_t,D> quantize(vec_t P) const
+      {
+        using vec_ui = cuBQL::vec_t<uint32_t,D>;
+
+        vec_ui cell = vec_ui((P-quantizeBias)*quantizeScale);
+        cell = min(cell,vec_ui((1u<<numMortonBits<D>::value)-1));
+        return cell;
+      }
+        
+      inline __device__ void init(cuBQL::box_t<float,D> centBounds)
+      {
+        quantizeBias
+          = centBounds.lower;
+        quantizeScale
+          = vec_t(1<<numMortonBits<D>::value)
+          * rcp(max(vec_t(reduce_max(centBounds.size())),vec_t(1e-20f)));
+      }
+        
+      /*! coefficients of `scale*(x-bias)` in the 21-bit fixed-point
+          quantization operation that does
+          `(x-centBoundsLower)/(centBoundsSize)*(1<<10)`. Ie, bias is
+          centBoundsLower, and scale is `(1<<10)/(centBoundsSize)` */
+      vec_t CUBQL_ALIGN(16) quantizeBias, CUBQL_ALIGN(16) quantizeScale;
+    };
+
+    template<int D>
+    struct Quantizer<double,D> {
+      using vec_t = cuBQL::vec_t<double,D>;
+      using box_t = cuBQL::box_t<double,D>;
+      
+      inline __device__ cuBQL::vec_t<uint32_t,D> quantize(vec_t P) const
+      {
+        using vec_ui = cuBQL::vec_t<uint32_t,D>;
+
+        vec_ui cell = vec_ui((P-quantizeBias)*quantizeScale);
+        cell = min(cell,vec_ui((1u<<numMortonBits<D>::value)-1));
+        return cell;
+      }
+        
+      inline __device__ void init(cuBQL::box_t<double,D> centBounds)
+      {
+        quantizeBias
+          = centBounds.lower;
+        quantizeScale
+          = vec_t(1<<numMortonBits<D>::value)
+          * rcp(max(vec_t(reduce_max(centBounds.size())),vec_t(1e-20f)));
+      }
+        
+      /*! coefficients of `scale*(x-bias)` in the 21-bit fixed-point
+          quantization operation that does
+          `(x-centBoundsLower)/(centBoundsSize)*(1<<10)`. Ie, bias is
+          centBoundsLower, and scale is `(1<<10)/(centBoundsSize)` */
+      vec_t CUBQL_ALIGN(16) quantizeBias, CUBQL_ALIGN(16) quantizeScale;
+    };
+
+    template<int D>
+    struct Quantizer<int,D> {
+      using vec_t = cuBQL::vec_t<int,D>;
+      using box_t = cuBQL::box_t<int,D>;
+      
+      inline __device__ void init(cuBQL::box_t<int,D> centBounds)
+      {
+        quantizeBias = centBounds.lower;
+        int maxValue = reduce_max(centBounds.size());
+        shlBits = __clz(maxValue);
+      }
+
+      inline __device__ cuBQL::vec_t<uint32_t,D> quantize(vec_t P) const
+      {
+        cuBQL::vec_t<uint32_t,D> cell = cuBQL::vec_t<uint32_t,D>(P-quantizeBias);
+        // move all relevant bits to top
+        cell = cell << shlBits;
+        return cell >> cuBQL::vec_t<uint32_t,D>(32-numMortonBits<D>::value);
+      }
+        
+      /*! coefficients of `scale*(x-bias)` in the 21-bit fixed-point
+          quantization operation that does
+          `(x-centBoundsLower)/(centBoundsSize)*(1<<10)`. Ie, bias is
+          centBoundsLower, and scale is `(1<<10)/(centBoundsSize)` */
+      vec_t quantizeBias;
+      int   shlBits;
+    };
+    
+
+
+    
     /*! maintains high-level summary of the build process */
     template<typename T, int D>
     struct CUBQL_ALIGN(16) BuildState {
@@ -48,7 +146,8 @@ namespace cuBQL {
           quantization operation that does
           `(x-centBoundsLower)/(centBoundsSize)*(1<<21)`. Ie, bias is
           centBoundsLower, and scale is `(1<<21)/(centBoundsSize)` */
-      vec_t CUBQL_ALIGN(16) quantizeBias, CUBQL_ALIGN(16) quantizeScale;
+      // vec_t CUBQL_ALIGN(16) quantizeBias, CUBQL_ALIGN(16) quantizeScale;
+      Quantizer<T,D> quantizer;
     };
 
     template<typename T, int D>
@@ -97,13 +196,9 @@ namespace cuBQL {
 
     template<typename T, int D>
     __global__
-    void finishBuildState(BuildState<T,D>  *buildState);
-    
-    template<>
-    __global__
-    void finishBuildState<float,3>(BuildState<float,3>  *buildState)
+    void finishBuildState(BuildState<T,D>  *buildState)
     {
-      using ctx_t = BuildState<float,3>;
+      using ctx_t = BuildState<T,D>;
       using atomic_box_t = typename ctx_t::atomic_box_t;
       using box_t        = typename ctx_t::box_t;
       
@@ -115,14 +210,71 @@ namespace cuBQL {
         fixed-point quantization operation that does
         `(x-centBoundsLower)/(centBoundsSize)*(1<<21)`. Ie, bias is
         centBoundsLower, and scale is `(1<<21)/(centBoundsSize)` */
-      buildState->quantizeBias
-        = centBounds.lower;
-      buildState->quantizeScale
-        = vec3f(1<<21)*rcp(max(centBounds.size(),vec3f(1e-20f)));
+      // buildState->quantizeBias
+      //   = centBounds.lower;
+      // buildState->quantizeScale
+      //   = vec3f(1<<21)*rcp(max(centBounds.size(),vec3f(1e-20f)));
+      buildState->quantizer.init(centBounds);
     }
 
 
-    /* morton code computation: how the bits shift for 21 input bits:
+    inline __device__
+    uint64_t shiftBits(uint64_t x, uint64_t maskOfBitstoMove, int howMuchToShift)
+    { return ((x & maskOfBitstoMove)<<howMuchToShift) | (x & ~maskOfBitstoMove); }
+
+    
+    /* morton code computation: how the bits shift for 32 input bits, in 1:1 pattern:
+
+       desired final step:
+       _P_O._N_M:_L_K._J_I:_H_G._F_E:_D_C._B_A:_p_o._n_m:_l_k._j_i:_h_g._f_e:_d_c._b_a:
+
+       stage -1
+       __PO.__NM:__LK.__JI:__HG.__FE:__DC.__BA:__po.__nm:__lk.__ji:__hg.__fe:__dc.__ba:
+       mask:
+       0010.0010:0010.0010:0010.0010:0010.0010:0010.0010:0010.0010:0010.0010:0010.0010
+       move by 1
+
+       stage -2
+       ____.PONM:____.LKJI:____.HGFE:____.DCBA:____.ponm:____.lkji:____.hgfe:____.dcba:
+       mask:
+       0000.1100:0000.1100:0000.1100:0000.1100:0000.1100:0000.1100:0000.1100:0000.1100
+       move by 2
+
+       stage -3
+       ____.____:PONM.LKJI:____.____:HGFE.DCBA:____.____:ponm.lkji:____.____:hgfe.dcba:
+       mask:
+       0000.0000:1111.0000:0000.0000:1111.0000:0000.0000:1111.0000:0000.0000:1111.0000
+       move by 4
+
+       stage -4
+       ____.____:____.____:PONM.LKJI:HGFE.DCBA:____.____:____.____:ponm.lkji:hgfe.dcba:
+       mask:
+       0000.0000:0000.0000:1111.1111:0000.0000:0000.0000:0000.0000:1111.1111.0000:0000
+       move by 8
+
+       stage -5
+       ____.____:____.____:____.____:____.____:PONM.LKJI:HGFE.DCBA:ponm.lkji:hgfe.dcba:
+       move:
+       0000.0000:0000.0000:0000.0000:0000.0000:1111.1111:1111.1111:0000.0000:0000.0000
+       move by 16
+    */
+    inline __device__
+    uint64_t insert_one_wide_gaps(uint64_t x)
+    {
+      x = shiftBits(x,
+                    0b0000000000000000000000000000000011111111111111110000000000000000ull,16);
+      x = shiftBits(x,
+                    0b0000000000000000111111110000000000000000000000001111111100000000ull,8);
+      x = shiftBits(x,
+                    0b0000000011110000000000001111000000000000111100000000000011110000ull,4);
+      x = shiftBits(x,
+                    0b0000110000001100000011000000110000001100000011000000110000001100ull,2);
+      x = shiftBits(x,
+                    0b0010001000100010001000100010001000100010001000100010001000100010ull,1);
+      return x;
+    }
+    
+    /* morton code computation: how the bits shift for 21 input bits, in 2:1 pattern:
 
        desired final step:
        ___u.__t_:_s__.r__q:__p_._o__:n__m.__l_:_k__.j__i:__h_._g__:f__e.__d_:_c__.b__a:
@@ -163,11 +315,7 @@ namespace cuBQL {
        hex    00:       00:       00:       00:       00:       1f:       00:       00
     */
     inline __device__
-    uint64_t shiftBits(uint64_t x, uint64_t maskOfBitstoMove, int howMuchToShift)
-    { return ((x & maskOfBitstoMove)<<howMuchToShift) | (x & ~maskOfBitstoMove); }
-    
-    inline __device__
-    uint64_t bitInterleave21(uint64_t x)
+    uint64_t insert_two_wide_gaps(uint64_t x)
     {
       //hex    00:       00:       00:       00:       00:       10:       00:       00
       x = shiftBits(x,0x00000000001f0000ull,32); 
@@ -184,15 +332,42 @@ namespace cuBQL {
     
     
     inline __device__
-    uint64_t computeMortonCode(vec3f P, vec3f quantizeBias, vec3f quantizeScale)
+    uint64_t interleaveBits(vec2ui mortonCell)
     {
-      P = (P - quantizeBias) * quantizeScale;
-      vec3i mortonCell = min(vec3i(P),vec3i((1<<21)-1));
       return
-        (bitInterleave21(mortonCell.z) << 2) |
-        (bitInterleave21(mortonCell.y) << 1) |
-        (bitInterleave21(mortonCell.x) << 0);
+        (insert_one_wide_gaps(mortonCell.x) << 0)
+        |
+        (insert_one_wide_gaps(mortonCell.y) << 1);
+      // return bitInterleave11(mortonCell.x,mortonCell.y);
     }
+
+    inline __device__
+    uint64_t interleaveBits(vec3ui mortonCell)
+    {
+      return
+        (insert_two_wide_gaps(mortonCell.z) << 2) |
+        (insert_two_wide_gaps(mortonCell.y) << 1) |
+        (insert_two_wide_gaps(mortonCell.x) << 0);
+    }
+
+    inline __device__
+    uint64_t interleaveBits(vec4ui mortonCell)
+    {
+      uint64_t xy = interleaveBits(vec2ui{mortonCell.x,mortonCell.y});
+      uint64_t zw = interleaveBits(vec2ui{mortonCell.z,mortonCell.w});
+      return
+        (insert_one_wide_gaps(xy) << 0) |
+        (insert_one_wide_gaps(zw) << 1);
+    }
+    
+    template<typename T, int D>
+    inline __device__
+    // uint32_t computeMortonCode(vec3f P, vec3f quantizeBias, vec3f quantizeScale)
+    uint64_t computeMortonCode(typename BuildState<T,D>::vec_t P,
+                               const Quantizer<T,D> quantizer)
+    {
+      return interleaveBits(quantizer.quantize(P));
+    }    
     
     template<typename T, int D>
     __global__
@@ -218,9 +393,9 @@ namespace cuBQL {
 
       primIDs[tid] = primID;
       mortonCodes[tid]
-        = computeMortonCode(prim.center(),
-                            buildState->quantizeBias,
-                            buildState->quantizeScale);
+        = computeMortonCode(prim.center(),buildState->quantizer);
+                            // buildState->quantizeBias,
+                            // buildState->quantizeScale);
     }
 
     struct TempNode {
@@ -360,15 +535,16 @@ namespace cuBQL {
       if (validNode)
         nodes[nodeID] = node;
     }
-                     
+
+    template<typename T, int D>
     __global__
-    void writeFinalNodes(bvh3f::Node *finalNodes,
+    void writeFinalNodes(typename bvh_t<T,D>::Node *finalNodes,
                          const TempNode *__restrict__ tempNodes,
                          int numNodes)
     {
       int tid = threadIdx.x+blockIdx.x*blockDim.x;
       if (tid >= numNodes) return;
-      bvh3f::Node node;
+      typename BinaryBVH<T,D>::Node node;
       TempNode tempNode = tempNodes[tid];
       node.offset = tempNode.finished.offset;
       node.count = tempNode.finished.count;
@@ -532,7 +708,8 @@ namespace cuBQL {
          have */
       bvh.numNodes = numNodesAlloced;
       _ALLOC(bvh.nodes,numNodesAlloced,s,memResource);
-      writeFinalNodes<<<divRoundUp(numNodesAlloced,1024),1024,0,s>>>
+      writeFinalNodes<T,D>
+        <<<divRoundUp(numNodesAlloced,1024),1024,0,s>>>
         (bvh.nodes,nodes,numNodesAlloced);
       
       /* 4.4 cleanup - free temp nodes, free build state, and release event */
