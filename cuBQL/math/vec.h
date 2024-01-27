@@ -350,6 +350,7 @@ namespace cuBQL {
   template<typename T> struct dot_result_t;
   template<> struct dot_result_t<float> { using type = float; };
   template<> struct dot_result_t<int32_t> { using type = int64_t; };
+  template<> struct dot_result_t<double> { using type = double; };
 
   template<typename T, int D> inline __cubql_both
   typename dot_result_t<T>::type dot(vec_t<T,D> a, vec_t<T,D> b)

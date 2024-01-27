@@ -92,4 +92,8 @@ if (NOT CUBQL_IS_SUBMODULE)
   target_link_libraries(cuBQL_fcpAndKnnBoxes PUBLIC cuBQL_testing)
   target_compile_definitions(cuBQL_fcpAndKnnBoxes PUBLIC -DUSE_BOXES=1)
 
+  add_executable(cuBQL_genBoxes genBoxes.cu)
+  target_link_libraries(cuBQL_genBoxes PUBLIC cuBQL_testing)
+
+  
 endif()

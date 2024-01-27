@@ -140,11 +140,9 @@ namespace cuBQL {
 
       if (this->N == N) return;
       this->N = N;
-      PING; PRINT(N); PRINT(d_data);
       if (d_data) CUBQL_CUDA_CALL(Free(d_data));
       d_data = 0;
       if (N) Allocator::alloc((void**)&d_data,N*sizeof(T));
-      PING; PRINT(d_data);
       assert(N == 0 || d_data != nullptr);
     }
 

@@ -42,7 +42,9 @@ endif()
 if (NOT (DEFINED CMAKE_CUDA_ARCHITECTURES))
   # new cmake policy: make sure that CMAKE_CUDA_ARCHITECTURES is set
   # to _something_, even if it's only "OFF". iw - seems to not apply on ubuntu 20.04!?
-  #  set(CMAKE_CUDA_ARCHITECTURES OFF)
+  if(${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.18)
+    set(CMAKE_CUDA_ARCHITECTURES OFF)
+  endif()
 endif()
 
 

@@ -55,6 +55,8 @@ namespace cuBQL {
     template<typename T> inline T to_scalar(const std::string &s);
     template<> inline float to_scalar<float>(const std::string &s)
     { return std::stof(s); }
+    template<> inline double to_scalar<double>(const std::string &s)
+    { return std::stof(s); }
     template<> inline int to_scalar<int>(const std::string &s)
     { return std::stoi(s); }
 
@@ -76,12 +78,12 @@ namespace cuBQL {
           std::string tok = tokenizer::findFirst(curr,next);
         }
         assert(!values.empty());
-        vec_t<float,D> ret;
+        vec_t<T,D> ret;
         for (int i=0;i<D;i++)
           ret[i] = values[i % values.size()];
         return ret;
       } else
-        return vec_t<float,D>(std::stof(tok));
+        return vec_t<T,D>(std::stof(tok));
     }
     
     // ==================================================================
@@ -137,6 +139,18 @@ namespace cuBQL {
     template struct PointGenerator<float,4>;
 #if CUBQL_TEST_N
     template struct PointGenerator<float,CUBQL_TEST_N>;
+#endif
+    template struct PointGenerator<double,2>;
+    template struct PointGenerator<double,3>;
+    template struct PointGenerator<double,4>;
+#if CUBQL_TEST_N
+    template struct PointGenerator<double,CUBQL_TEST_N>;
+#endif
+    template struct PointGenerator<int,2>;
+    template struct PointGenerator<int,3>;
+    template struct PointGenerator<int,4>;
+#if CUBQL_TEST_N
+    template struct PointGenerator<int,CUBQL_TEST_N>;
 #endif
     // ==================================================================
 
@@ -197,6 +211,18 @@ namespace cuBQL {
 #if CUBQL_TEST_N
     template struct BoxGenerator<float,CUBQL_TEST_N>;
 #endif
+    template struct BoxGenerator<double,2>;
+    template struct BoxGenerator<double,3>;
+    template struct BoxGenerator<double,4>;
+#if CUBQL_TEST_N
+    template struct BoxGenerator<double,CUBQL_TEST_N>;
+#endif
+    template struct BoxGenerator<int,2>;
+    template struct BoxGenerator<int,3>;
+    template struct BoxGenerator<int,4>;
+#if CUBQL_TEST_N
+    template struct BoxGenerator<int,CUBQL_TEST_N>;
+#endif
     // ==================================================================
   
   
@@ -208,7 +234,14 @@ namespace cuBQL {
     template<typename T> inline __cubql_both T uniform_default_upper();
     template<> inline __cubql_both float uniform_default_lower<float>() { return 0.f; }
     template<> inline __cubql_both float uniform_default_upper<float>() { return 1.f; }
-  
+    template<> inline __cubql_both double uniform_default_lower<double>() { return 0.f; }
+    template<> inline __cubql_both double uniform_default_upper<double>() { return 1.f; }
+    template<> inline __cubql_both int uniform_default_lower<int>() { return -100000; }
+    template<> inline __cubql_both int uniform_default_upper<int>() { return +100000; }
+
+    template<typename T> inline __cubql_both T uniform_domain_size()
+    { return uniform_default_upper<T>()-uniform_default_lower<T>(); }
+    
     template<typename T, int D>
     __global__
     void uniformPointGenerator(vec_t<T,D> *d_points, int count, int seed)
@@ -242,7 +275,7 @@ namespace cuBQL {
     template<typename T, int D>
     __global__
     void uniformBoxGenerator(box_t<T,D> *d_boxes, int count, int seed,
-                             T size)
+                             float size)
     {
       int tid = threadIdx.x+blockIdx.x*blockDim.x;
       if (tid >= count) return;
@@ -274,6 +307,7 @@ namespace cuBQL {
       int bs = 1024;
       int nb = divRoundUp(int(count),bs);
       float size = 0.5f / powf((float)count,float(1.f/D));
+      // float size = (0.5f*uniform_domain_size<T>()) / powf((float)count,float(1.f/D));
       uniformBoxGenerator<T,D><<<nb,bs>>>(res.data(),count,seed,size);
     }
 
@@ -427,8 +461,11 @@ namespace cuBQL {
     {
       std::default_random_engine rng;
       rng.seed(seed);
-      std::uniform_real_distribution<double> uniform(0.f,1.f);
-
+      std::uniform_real_distribution<double>
+      //   uniform(0.f,1.f);
+        uniform(uniform_default_lower<T>(),
+                uniform_default_upper<T>());
+      
       int numClusters = int(1+powf((float)count,(D-1.f)/D));
       // = int(1+powf(count/50.f);
       // = int(1+sqrtf(count));
@@ -448,7 +485,7 @@ namespace cuBQL {
       std::vector<vec_t<T,D>> points;
       for (int sID=0;sID<count;sID++) {
         int clusterID = int(uniform(rng)*numClusters) % numClusters;
-        vec_t<float,D> pt;
+        vec_t<T,D> pt;
         for (int i=0;i<D;i++)
           pt[i] = T(gaussian(rng) + clusterCenters[clusterID][i]);
         points.push_back(pt);
@@ -501,9 +538,9 @@ namespace cuBQL {
       int numClusters = int(1+powf((float)count,(D-1.f)/D));
       // int numClusters
       //   = int(1+count/50.f);
-      std::vector<vec_t<float,D>> clusterCenters;
+      std::vector<vec_t<T,D>> clusterCenters;
       for (int cc=0;cc<numClusters;cc++) {
-        vec_t<float,D> c;
+        vec_t<T,D> c;
         for (int i=0;i<D;i++)
           c[i] = (T)uniform(rng);
         clusterCenters.push_back(c);
@@ -543,7 +580,7 @@ namespace cuBQL {
       std::vector<box_t<T,D>> boxes;
       for (int sID=0;sID<count;sID++) {
         int clusterID = int(uniform(rng)*numClusters) % numClusters;
-        vec_t<float,D> center, halfSize;
+        vec_t<T,D> center, halfSize;
         for (int i=0;i<D;i++)
           center[i] = T(gaussian(rng) + clusterCenters[clusterID][i]);
 
@@ -556,7 +593,7 @@ namespace cuBQL {
               = T(uniformSize.min
                   + (uniformSize.max-uniformSize.min) * uniform(rng));
         }
-        box_t<float,D> box;
+        box_t<T,D> box;
         box.lower = center - halfSize;
         box.upper = center + halfSize;
         boxes.push_back(box);
@@ -579,7 +616,7 @@ namespace cuBQL {
     {
       int numClusters = (int)(1+powf((float)count,0.5f*(D-1.f)/D));
       LCG<8> rng(seed,290374);
-      std::vector<vec_t<float,D>> clusterLower(numClusters);
+      std::vector<vec_t<T,D>> clusterLower(numClusters);
       for (int d=0;d<D;d++) {
         for (int i=0;i<numClusters;i++) {
           clusterLower[i][d] = i/(float)numClusters;
@@ -591,7 +628,7 @@ namespace cuBQL {
         }
       }
     
-      std::vector<vec_t<float,D>> points(count);
+      std::vector<vec_t<T,D>> points(count);
       for (int i=0;i<count;i++) {
         int clusterID = rng.ui32() % numClusters;
         for (int d=0;d<D;d++)
@@ -641,7 +678,7 @@ namespace cuBQL {
     {
       int numClusters = (int)(1+powf((float)count,0.5f*(D-1.f)/D));
       LCG<8> lcg(seed,290374);
-      std::vector<vec_t<float,D>> clusterLower(numClusters);
+      std::vector<vec_t<T,D>> clusterLower(numClusters);
       for (int d=0;d<D;d++) {
         for (int i=0;i<numClusters;i++) {
           clusterLower[i][d] = i/(float)numClusters;
@@ -691,7 +728,7 @@ namespace cuBQL {
       std::uniform_real_distribution<double> uniform(0.f,1.f);
       reng.seed(seed+29037411);
 
-      std::vector<box_t<float,D>> boxes;
+      std::vector<box_t<T,D>> boxes;
 
       for (int i=0;i<count;i++) {
         int clusterID = lcg.ui32() % numClusters;
@@ -710,7 +747,7 @@ namespace cuBQL {
               = T(uniformSize.min
                   + (uniformSize.max-uniformSize.min) * uniform(reng));
         }
-        box_t<float,D> box;
+        box_t<T,D> box;
         box.lower = center - halfSize;
         box.upper = center + halfSize;
         boxes.push_back(box);
