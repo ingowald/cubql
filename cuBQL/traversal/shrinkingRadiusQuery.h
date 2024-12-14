@@ -42,7 +42,16 @@ namespace cuBQL {
       radius can only be *shrunk* during traversal; if the
       user-provided callback returns a radius larger than what the
       query ball has already been shrunk to the existing smaller value
-      will be used. */
+      will be used.
+
+      Expected signature of the lambda is
+
+      float perPrimLambda(uint32_t primID);
+
+      which is expected to return a new maximum search radius (or a
+      value larger than the current search radius, in which case this
+      value gets ignored)
+    */
     template<typename T, int D, typename Lambda>
     inline __cubql_both
     void forEachPrim(/*! lambda that gets called for each candidate
@@ -74,7 +83,16 @@ namespace cuBQL {
       radius can only be *shrunk* during traversal; if the
       user-provided callback returns a radius larger than what the
       query ball has already been shrunk to the existing smaller value
-      will be used. */
+      will be used.
+
+      Expected signature of the lambda is
+
+      float perPrimLambda(uint32_t primID);
+
+      which is expected to return a new maximum search radius (or a
+      value larger than the current search radius, in which case this
+      value gets ignored)
+    */
     template<typename T, int D, int W, typename Lambda>
     inline __cubql_both
     void forEachPrim(/*! lambda that gets called for each candidate
@@ -129,7 +147,17 @@ namespace cuBQL {
       radius can only be *shrunk* during traversal; if the
       user-provided callback returns a radius larger than what the
       query ball has already been shrunk to the existing smaller value
-      will be used. */
+      will be used.
+
+      Expected signature of the lambda is
+
+      float perLeafLambda(const uint32_t *primIDsInLeaf,
+                          int numPrimsInLeaf);
+
+      which is expected to return a new maximum search radius (or a
+      value larger than the current search radius, in which case this
+      value gets ignored)
+    */
     template<typename T, int D, typename Lambda>
     inline __cubql_both
     void forEachLeaf(/*! lambda that gets called for each leaf that

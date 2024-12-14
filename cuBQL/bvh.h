@@ -123,7 +123,7 @@ namespace cuBQL {
       this is not a "single" node, but actually N nodes merged
       together */
     struct CUBQL_ALIGN(16) Node {
-      struct Child {
+      struct CUBQL_ALIGN(16) Child {
         box_t    bounds;
         struct {
           uint64_t valid  :  1;
