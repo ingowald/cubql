@@ -28,6 +28,72 @@ namespace cuBQL {
     // INTERFACE
     // (which functions this header file provides)
     // ******************************************************************
+
+
+    // ******************************************************************
+    /*! performs a 'shrinking radius (primitive-)query', which iterate
+      through all bvh leaves that overlap a given query ball that is
+      centered around a fixed point in space, and whose radius may by
+      successively reduced (shrunk) durin that query. Every time the
+      query reaches a new candidate leaf it calls the provided
+      callback function, which, after processing the given leaf, can
+      then return a new maximum query radius which, if smaller than
+      the radius of the query ball at that point in time, will from
+      that point on be used as new query radius. Note that the query
+      radius can only be *shrunk* during traversal; if the
+      user-provided callback returns a radius larger than what the
+      query ball has already been shrunk to the existing smaller value
+      will be used.
+
+      Expected signature of the lambda is
+
+      float perPrimLambda(uint32_t primID);
+
+      which is expected to return a new maximum search radius (or a
+      value larger than the current search radius, in which case this
+      value gets ignored)
+    */
+    template<typename T, int D, typename Lambda>
+    inline __cubql_both
+    void forEachPrim(/*! lambda that gets called for each candidate
+                       primitmive index that may contain any
+                       primitmives. if this lamdba does find a new,
+                       better result than whatever the query had
+                       before this lambda MUST return the SQUARE of
+                       the new culling radius */
+                     const Lambda &lambdaToExecuteForEachCandidate,
+                     /* the bvh we're querying into */
+                     bvh_t<T,D> bvh,
+                     /*! the center of out query ball */
+                     vec_t<T,D> queryPoint,
+                     /*! the SQUARE of the maximum query radius to
+                       which we want to restrict the search; can be
+                       INFINITY for unrestricted searches */
+                     float sqrMaxSearchRadius=INFINITY);
+
+    /*! same as regular `forEachLeaf()` function, except this one has
+        a lambda for both leaf-test *and* for distance computation as
+        well. The "NodeLambda" gets passed a pointer to a node, and is
+        supposed to return a float (for conservative distance to said
+        node). If the returned distance is INF that node is guaranteed
+        to not be traversed) */
+    template<typename T, int D, typename PrimLambda, typename NodeLambda>
+    inline __cubql_both
+    void forEachPrim(/*! lambda that gets called for each prim that
+                       may contain any primitives. if this lamdba does
+                       find a new, better result than whatever the
+                       query had before this lambda MUST return the
+                       SQUARE of the new culling radius */
+                     const PrimLambda &lambdaToExecuteForEachCandidatePrim,
+                     const NodeLambda &lambdaToExecuteForEachVisitedNode,
+                     /* the bvh we're querying into */
+                     bvh_t<T,D> bvh,
+                     /*! the SQUARE of the maximum query radius to
+                       which we want to restrict the search; can be
+                       INFINITY for unrestricted searches */
+                     float sqrMaxSearchRadius=INFINITY);
+    
+
     
     // ******************************************************************
     /*! performs a 'shrinking radius (leaf-)query', which iterate
@@ -42,7 +108,16 @@ namespace cuBQL {
       radius can only be *shrunk* during traversal; if the
       user-provided callback returns a radius larger than what the
       query ball has already been shrunk to the existing smaller value
-      will be used. */
+      will be used.
+
+      Expected signature of the lambda is
+
+      float perLeafLambda(const uint32_t *primID, int numPrims);
+
+      which is expected to return a new maximum search radius (or a
+      value larger than the current search radius, in which case this
+      value gets ignored)
+    */
     template<typename T, int D, typename Lambda>
     inline __cubql_both
     void forEachLeaf(/*! lambda that gets called for each leaf that
@@ -55,8 +130,9 @@ namespace cuBQL {
                      bvh_t<T,D> bvh,
                      /*! the center of out query ball */
                      vec_t<T,D> queryPoint,
-                     /*! the SQUARE of the maximum query radius to which we want to
-                       restrict the search; can be INFINITY for unrestricted searches */
+                     /*! the SQUARE of the maximum query radius to
+                       which we want to restrict the search; can be
+                       INFINITY for unrestricted searches */
                      float sqrMaxSearchRadius=INFINITY);
 
     /*! same as regular `forEachLeaf()` function, except this one has
@@ -76,60 +152,9 @@ namespace cuBQL {
                      const NodeLambda &lambdaToExecuteForEachVisitedNode,
                      /* the bvh we're querying into */
                      bvh_t<T,D> bvh,
-                     /*! the SQUARE of the maximum query radius to which we want to
-                       restrict the search; can be INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
-    
-    // ******************************************************************
-    /*! performs a 'shrinking radius (primitive-)query', which iterate
-      through all bvh leaves that overlap a given query ball that is
-      centered around a fixed point in space, and whose radius may by
-      successively reduced (shrunk) durin that query. Every time the
-      query reaches a new candidate leaf it calls the provided
-      callback function, which, after processing the given leaf, can
-      then return a new maximum query radius which, if smaller than
-      the radius of the query ball at that point in time, will from
-      that point on be used as new query radius. Note that the query
-      radius can only be *shrunk* during traversal; if the
-      user-provided callback returns a radius larger than what the
-      query ball has already been shrunk to the existing smaller value
-      will be used. */
-    template<typename T, int D, typename Lambda>
-    inline __cubql_both
-    void forEachPrim(/*! lambda that gets called for each candidate
-                       primitmive index that may contain any
-                       primitmives. if this lamdba does find a new,
-                       better result than whatever the query had
-                       before this lambda MUST return the SQUARE of
-                       the new culling radius */
-                     const Lambda &lambdaToExecuteForEachCandidate,
-                     /* the bvh we're querying into */
-                     bvh_t<T,D> bvh,
-                     /*! the center of out query ball */
-                     vec_t<T,D> queryPoint,
-                     /*! the SQUARE of the maximum query radius to which we want to
-                       restrict the search; can be INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
-
-    /*! same as regular `forEachLeaf()` function, except this one has
-        a lambda for both leaf-test *and* for distance computation as
-        well. The "NodeLambda" gets passed a pointer to a node, and is
-        supposed to return a float (for conservative distance to said
-        node). If the returned distnace is INF that node is guaranteed
-        to not be traversed) */
-    template<typename T, int D, typename PrimLambda, typename NodeLambda>
-    inline __cubql_both
-    void forEachPrim(/*! lambda that gets called for each prim that
-                       may contain any primitives. if this lamdba does
-                       find a new, better result than whatever the
-                       query had before this lambda MUST return the
-                       SQUARE of the new culling radius */
-                     const PrimLambda &lambdaToExecuteForEachCandidatePrim,
-                     const NodeLambda &lambdaToExecuteForEachVisitedNode,
-                     /* the bvh we're querying into */
-                     bvh_t<T,D> bvh,
-                     /*! the SQUARE of the maximum query radius to which we want to
-                       restrict the search; can be INFINITY for unrestricted searches */
+                     /*! the SQUARE of the maximum query radius to
+                       which we want to restrict the search; can be
+                       INFINITY for unrestricted searches */
                      float sqrMaxSearchRadius=INFINITY);
     
     
@@ -500,7 +525,8 @@ namespace cuBQL {
           // we're at a valid leaf: call the lambda and see if that gave
           // us a enw, closer cull radius
           float leafResult
-            = lambdaToExecuteForEachCandidateLeaf(bvh.primIDs+node.offset,node.count);
+            = lambdaToExecuteForEachCandidateLeaf
+            (bvh.primIDs+node.offset,node.count);
           if (leafResult < 0.f) return;
           sqrCullDist = min(sqrCullDist,leafResult);
         }
@@ -539,17 +565,20 @@ namespace cuBQL {
       will be used. */
     template<typename T, int D, typename Lambda>
     inline __cubql_both
-    void forEachPrim(/*! lambda that gets called for each candidate primitmive index
-                       that may contain any primitmives. if this lamdba does find a new,
-                       better result than whatever the query had before this lambda MUST
-                       return the SQUARE of the new culling radius */
+    void forEachPrim(/*! lambda that gets called for each candidate
+                       primitmive index that may contain any
+                       primitmives. if this lamdba does find a new,
+                       better result than whatever the query had
+                       before this lambda MUST return the SQUARE of
+                       the new culling radius */
                      const Lambda &lambdaToExecuteForEachCandidate,
                      /* the bvh we're querying into */
                      bvh_t<T,D> bvh,
                      /*! the center of out query ball */
                      vec_t<T,D> queryPoint,
-                     /*! the SQUARE of the maximum query radius to which we want to
-                       restrict the search; can be INFINITY for unrestricted searches */
+                     /*! the SQUARE of the maximum query radius to
+                       which we want to restrict the search; can be
+                       INFINITY for unrestricted searches */
                      float sqrMaxSearchRadius)
     {
       /* the code we want to have executed for each leaf that may
@@ -586,16 +615,19 @@ namespace cuBQL {
       will be used. */
     template<typename T, int D, typename PrimLambda, typename NodeLambda>
     inline __cubql_both
-    void forEachPrim(/*! lambda that gets called for each candidate primitmive index
-                       that may contain any primitmives. if this lamdba does find a new,
-                       better result than whatever the query had before this lambda MUST
-                       return the SQUARE of the new culling radius */
+    void forEachPrim(/*! lambda that gets called for each candidate
+                       primitmive index that may contain any
+                       primitmives. if this lamdba does find a new,
+                       better result than whatever the query had
+                       before this lambda MUST return the SQUARE of
+                       the new culling radius */
                      const PrimLambda &lambdaToExecuteForEachCandidate,
                      const NodeLambda &lambdaToExecuteForEachVisitedNode,
                      /* the bvh we're querying into */
                      bvh_t<T,D> bvh,
-                     /*! the SQUARE of the maximum query radius to which we want to
-                       restrict the search; can be INFINITY for unrestricted searches */
+                     /*! the SQUARE of the maximum query radius to
+                       which we want to restrict the search; can be
+                       INFINITY for unrestricted searches */
                      float sqrMaxSearchRadius)
     {
       /* the code we want to have executed for each leaf that may

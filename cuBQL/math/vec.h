@@ -173,7 +173,7 @@ namespace cuBQL {
     { this->x = T(o.x); this->y = T(o.y); this->z = T(o.z); }
     
     inline __cubql_both vec_t &operator=(cuda_t o)
-    { this->x = (o.x); this->y = (o.y); this->z = (o.z); }
+    { this->x = (o.x); this->y = (o.y); this->z = (o.z); return *this; }
     
     inline static std::string typeName();
   };
@@ -202,7 +202,7 @@ namespace cuBQL {
     { this->x = T(o.x); this->y = T(o.y); this->z = T(o.z); this->w = T(o.w); }
     
     inline __cubql_both vec_t &operator=(cuda_t o)
-    { this->x = (o.x); this->y = (o.y); this->z = (o.z); this->w = (o.w); }
+    { this->x = (o.x); this->y = (o.y); this->z = (o.z); this->w = (o.w); return *this; }
     
     inline static std::string typeName();
   };
