@@ -384,7 +384,7 @@ namespace cuBQL {
         long long hi = max(a[i],b[i]);
         unsigned long long diff = hi - lo;
 #ifdef __CUDA_ARCH__
-        float fDiff = ll2float_rd(diff);
+        float fDiff = __ll2float_rd(diff);
 #else
         float fDiff = host::__ull2float_rd(diff);
 #endif
