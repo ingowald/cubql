@@ -28,4 +28,19 @@ if (CUBQL_HAVE_CUDA)
     PROPERTIES
     CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}
     )
+
+
+  add_executable(cuBQL_sample01_points_closestPoint_wideBVH_cuda
+    closestPoint_WideBVH.cu
+    )
+  target_link_libraries(cuBQL_sample01_points_closestPoint_wideBVH_cuda
+    # the cuda-side builders for float3 data
+    cuBQL_cuda_float3
+    # common samples stuff
+    cuBQL_samples_common
+    )
+  set_target_properties(cuBQL_sample01_points_closestPoint_wideBVH_cuda
+    PROPERTIES
+    CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}
+    )
 endif()

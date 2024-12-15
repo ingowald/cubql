@@ -29,6 +29,10 @@
 
 using namespace cuBQL;
 
+enum { BVH_WIDTH = 8 };
+
+typedef cuBQL::WideBVH<float,3,BVH_WIDTH> wide_bvh3f;
+
 __global__
 void computeBoxes(box3f *d_boxes, const vec3f *d_data, int numData)
 {
@@ -39,7 +43,7 @@ void computeBoxes(box3f *d_boxes, const vec3f *d_data, int numData)
 }
 
 __global__
-void runQueries(bvh3f bvh,
+void runQueries(wide_bvh3f bvh,
                 const vec3f *d_data,
                 const vec3f *d_queries,
                 int numQueries)
@@ -100,7 +104,7 @@ int main(int, char **)
     (d_primBounds,d_dataPoints,numDataPoints);
 
   // generate cuBQL bvh
-  bvh3f bvh;
+  wide_bvh3f bvh;
   cuBQL::gpuBuilder(bvh,d_primBounds,numDataPoints,BuildConfig());
   runQueries<<<divRoundUp(numQueryPoints,128),128>>>
     (bvh,d_dataPoints,d_queryPoints,numQueryPoints);

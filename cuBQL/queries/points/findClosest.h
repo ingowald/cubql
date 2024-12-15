@@ -61,6 +61,37 @@ namespace cuBQL {
                       this is the SQUARE distance */
                     float squareOfMaxQueryDistance=INFINITY);
 
+    /*! given a (W-wide) bvh build over a set of float<N> points,
+      perform a closest-point query that returns the index of the
+      input point closest to the query point (if one exists within the
+      given max query radius), or -1 (if not).
+
+      \returns Index of point in points[] array that is closest to
+      query point, or -1 if no point exists within provided max query
+      range
+
+      \note If more than one point with similar closest distance
+      exist, then this function will not make any guarantees as to
+      which of them will be returned (though we can expect that
+      succesuve such queries on the _same_ bvh will return the same
+      result, different BVHs built even over the same input data may
+      not)
+    */
+    template<typename T, int D, int W>
+    inline __cubql_device
+    int findClosest(/*! binary bvh built over the given points[]
+                      specfied below */
+                    WideBVH<T,D,W> bvhOverPoints,
+                    /*! data points that the bvh was built over */
+                    const vec_t<T,D> *points,
+                    /*! the query point for which we want to know the
+                      result */
+                    vec_t<T,D> queryPoint,
+                    /*! square of the maximum query distance in which
+                      this query is to look for candidates. note
+                      this is the SQUARE distance */
+                    float squareOfMaxQueryDistance=INFINITY);
+
 
     template<typename T, int D>
     inline __cubql_device
@@ -147,7 +178,7 @@ namespace cuBQL {
     // IMPLEMENTATION
     // ******************************************************************
 
-    template<typename T, typename BlackListLambda, int D>
+    template<typename T, int D, typename BlackListLambda>
     inline __cubql_device
     int findClosest_withBlackList(const BlackListLambda blackListed,
                                   /*! binary bvh built over the given points[]
@@ -193,6 +224,56 @@ namespace cuBQL {
                                                squareOfMaxQueryDistance);
       return closestID;
     }
+
+
+    template<typename T, int D, int W, typename BlackListLambda>
+    inline __cubql_device
+    int findClosest_withBlackList(const BlackListLambda blackListed,
+                                  /*! binary bvh built over the given points[]
+                                    specfied below */
+                                  WideBVH<T,D,W> bvhOverPoints,
+                                  /*! data points that the bvh was built over */
+                                  const vec_t<T,D> *points,
+                                  /*! the query point for which we want to know the
+                                    result */
+                                  vec_t<T,D> queryPoint,
+                                  /*! square of the maximum query distance in which
+                                    this query is to look for candidates. note
+                                    this is the SQUARE distance */
+                                  float squareOfMaxQueryDistance=INFINITY)
+    {
+      int closestID = -1;
+      float closestSqrDist = squareOfMaxQueryDistance;
+      // callback that processes each candidate, and checks if its
+      // closer than current best
+      auto candidateLambda
+        = [blackListed,&closestID,&closestSqrDist,points,queryPoint]
+        (int pointID)->float
+        {
+          if (blackListed(pointID))
+            // caller explicitly blacklisted this point, do not process
+            return closestSqrDist;
+          
+          // compute (square distance)
+          float sqrDist = fSqrDistance_rd(points[pointID],queryPoint);
+          if (sqrDist >= closestSqrDist)
+            // candidate is further away than what we already have
+            return closestSqrDist;
+
+          // candidate is closer - accept and update search distance
+          closestSqrDist = sqrDist;
+          closestID      = pointID;
+          return closestSqrDist;
+        };
+
+      cuBQL::shrinkingRadiusQuery::forEachPrim(candidateLambda,
+                                               bvhOverPoints,
+                                               queryPoint,
+                                               squareOfMaxQueryDistance);
+      return closestID;
+    }
+
+
 
     template<typename T, int D>
     inline __cubql_device
@@ -257,6 +338,33 @@ namespace cuBQL {
     int findClosest(/*! binary bvh built over the given points[]
                       specfied below */
                     BinaryBVH<T,D> bvhOverPoints,
+                    /*! data points that the bvh was built over */
+                    const vec_t<T,D> *points,
+                    /*! the query point for which we want to know the
+                      result */
+                    vec_t<T,D> queryPoint,
+                    /*! square of the maximum query distance in which
+                      this query is to look for candidates. note
+                      this is the SQUARE distance */
+                    float squareOfMaxQueryDistance)
+    {
+      /* no blacklist for 'general' find-closest */
+      auto blackList = [](int pointID)->bool {
+        return false;
+      };
+      return findClosest_withBlackList(blackList,
+                                       bvhOverPoints,
+                                       points,
+                                       queryPoint,
+                                       squareOfMaxQueryDistance);
+    }
+
+
+    template<typename T, int D, int W>
+    inline __cubql_device
+    int findClosest(/*! binary bvh built over the given points[]
+                      specfied below */
+                    WideBVH<T,D,W> bvhOverPoints,
                     /*! data points that the bvh was built over */
                     const vec_t<T,D> *points,
                     /*! the query point for which we want to know the

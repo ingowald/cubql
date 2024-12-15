@@ -35,6 +35,7 @@ namespace cuBQL {
   template<> struct log_of< 4> { enum { value = 2 }; };
   template<> struct log_of< 8> { enum { value = 3 }; };
   template<> struct log_of<16> { enum { value = 4 }; };
+  template<> struct log_of<32> { enum { value = 5 }; };
 
   /*! square of a value */
   inline __cubql_both float sqr(float f) { return f*f; }
