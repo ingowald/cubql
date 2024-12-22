@@ -596,17 +596,17 @@ namespace cuBQL {
   template<typename T>
   inline __cubql_both
   bool any_less_than(const vec_t<T,2> &a, const vec_t<T,2> &b)
-  { return a.x < b.x | a.y < b.y; }
+  { return (a.x < b.x) | (a.y < b.y); }
 
   template<typename T>
   inline __cubql_both
   bool any_less_than(const vec_t<T,3> &a, const vec_t<T,3> &b)
-  { return a.x < b.x | a.y < b.y | a.z < b.z; }
+  { return (a.x < b.x) | (a.y < b.y) | (a.z < b.z); }
   
   template<typename T>
   inline __cubql_both
   bool any_less_than(const vec_t<T,4> &a, const vec_t<T,4> &b)
-  { return a.x < b.x | a.y < b.y | a.z < b.z | a.w < b.w; }
+  { return (a.x < b.x) | (a.y < b.y) | (a.z < b.z) | (a.w < b.w); }
 
   template<typename T, int D>
   std::ostream &operator<<(std::ostream &o, const vec_t<T,D> &v)
