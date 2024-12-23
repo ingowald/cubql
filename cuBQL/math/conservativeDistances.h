@@ -40,7 +40,7 @@ namespace cuBQL {
     return __ll2float_rd(v);
 #else
     float f = (float)v;
-    if ((int64_t)f >= v) f = nextafter(f,INFINITY);
+    if ((int64_t)f >= v) f = nextafter(f,CUBQL_INF);
     return f;
 #endif
   }
@@ -52,7 +52,7 @@ namespace cuBQL {
     return __double2float_rd(v);
 #else
     float f = (float)v;
-    if ((double)f >= v) f = nextafter(f,INFINITY);
+    if ((double)f >= v) f = nextafter(f,CUBQL_INF);
     return f;
 #endif
   }
