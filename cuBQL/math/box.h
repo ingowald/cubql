@@ -28,10 +28,10 @@ namespace cuBQL {
   template<typename scalar_t>
   inline __cubql_both scalar_t empty_box_upper_value();
 
-  template<> inline __cubql_both float empty_box_lower_value<float>() { return +INFINITY; }
-  template<> inline __cubql_both float empty_box_upper_value<float>() { return -INFINITY; }
-  template<> inline __cubql_both double empty_box_lower_value<double>() { return +INFINITY; }
-  template<> inline __cubql_both double empty_box_upper_value<double>() { return -INFINITY; }
+  template<> inline __cubql_both float empty_box_lower_value<float>() { return +CUBQL_INF; }
+  template<> inline __cubql_both float empty_box_upper_value<float>() { return -CUBQL_INF; }
+  template<> inline __cubql_both double empty_box_lower_value<double>() { return +CUBQL_INF; }
+  template<> inline __cubql_both double empty_box_upper_value<double>() { return -CUBQL_INF; }
   template<> inline __cubql_both int empty_box_lower_value<int>() { return INT_MAX; }
   template<> inline __cubql_both int empty_box_upper_value<int>() { return INT_MIN; }
   template<> inline __cubql_both int64 empty_box_lower_value<int64>() { return LONG_MAX; }

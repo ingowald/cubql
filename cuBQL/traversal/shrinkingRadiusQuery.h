@@ -67,8 +67,8 @@ namespace cuBQL {
                      vec_t<T,D> queryPoint,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
+                       CUBQL_INF for unrestricted searches */
+                     float sqrMaxSearchRadius=CUBQL_INF);
     
     // ******************************************************************
     /*! performs a 'shrinking radius (primitive-)query', which iterate
@@ -108,8 +108,8 @@ namespace cuBQL {
                      vec_t<T,D> queryPoint,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
+                       CUBQL_INF for unrestricted searches */
+                     float sqrMaxSearchRadius=CUBQL_INF);
 
     /*! same as regular `forEachLeaf()` function, except this one has
         a lambda for both leaf-test *and* for distance computation as
@@ -130,8 +130,8 @@ namespace cuBQL {
                      bvh_t<T,D> bvh,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
+                       CUBQL_INF for unrestricted searches */
+                     float sqrMaxSearchRadius=CUBQL_INF);
     
 
     // ******************************************************************
@@ -172,8 +172,8 @@ namespace cuBQL {
                      vec_t<T,D> queryPoint,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
+                       CUBQL_INF for unrestricted searches */
+                     float sqrMaxSearchRadius=CUBQL_INF);
     
     /*! performs a 'shrinking radius (leaf-)query', which iterate
       through all bvh leaves that overlap a given query ball that is
@@ -202,8 +202,8 @@ namespace cuBQL {
                      vec_t<T,D> queryPoint,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
+                       CUBQL_INF for unrestricted searches */
+                     float sqrMaxSearchRadius=CUBQL_INF);
 
     /*! same as regular `forEachLeaf()` function, except this one has
         a lambda for both leaf-test *and* for distance computation as
@@ -224,8 +224,8 @@ namespace cuBQL {
                      bvh_t<T,D> bvh,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
-                     float sqrMaxSearchRadius=INFINITY);
+                       CUBQL_INF for unrestricted searches */
+                     float sqrMaxSearchRadius=CUBQL_INF);
     
     
   
@@ -778,7 +778,7 @@ namespace cuBQL {
                      vec_t<T,D> queryPoint,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
+                       CUBQL_INF for unrestricted searches */
                      float sqrMaxSearchRadius)
     {
       /* the code we want to have executed for each leaf that may
@@ -789,7 +789,7 @@ namespace cuBQL {
         = [lambdaToExecuteForEachCandidate](const uint32_t *leafPrims,
                                             size_t numPrims)->float
         {
-          float leafResult = INFINITY;
+          float leafResult = CUBQL_INF;
           for (int i=0;i<numPrims;i++) {
             float primResult
               = lambdaToExecuteForEachCandidate(leafPrims[i]);
@@ -828,7 +828,7 @@ namespace cuBQL {
                      vec_t<T,D> queryPoint,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
+                       CUBQL_INF for unrestricted searches */
                      float sqrMaxSearchRadius)
     {
       /* the code we want to have executed for each leaf that may
@@ -839,7 +839,7 @@ namespace cuBQL {
         = [lambdaToExecuteForEachCandidate](const uint32_t *leafPrims,
                                             size_t numPrims)->float
         {
-          float leafResult = INFINITY;
+          float leafResult = CUBQL_INF;
           for (int i=0;i<numPrims;i++) {
             float primResult
               = lambdaToExecuteForEachCandidate(leafPrims[i]);
@@ -877,7 +877,7 @@ namespace cuBQL {
                      bvh_t<T,D> bvh,
                      /*! the SQUARE of the maximum query radius to
                        which we want to restrict the search; can be
-                       INFINITY for unrestricted searches */
+                       CUBQL_INF for unrestricted searches */
                      float sqrMaxSearchRadius)
     {
       /* the code we want to have executed for each leaf that may
@@ -888,7 +888,7 @@ namespace cuBQL {
         = [lambdaToExecuteForEachCandidate](const uint32_t *leafPrims,
                                             size_t numPrims)->float
         {
-          float leafResult = INFINITY;
+          float leafResult = CUBQL_INF;
           for (int i=0;i<numPrims;i++) {
             float primResult
               = lambdaToExecuteForEachCandidate(leafPrims[i]);

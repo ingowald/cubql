@@ -18,7 +18,11 @@
 
 #include "cuBQL/math/math.h"
 #include <type_traits>
-#include <climits>
+#include <limits>
+#ifdef __CUDACC__
+#include <cuda/std/limits>
+#endif
+
 #include "constants.h"
 
 #ifdef _MSC_VER
@@ -33,6 +37,14 @@ namespace cuBQL {
   using std::min;
   using std::max;
 #endif
+
+#ifdef __CUDACC__
+# define CUBQL_INF ::cuda::std::numeric_limits<float>::infinity()
+#else
+# define CUBQL_INF std::numeric_limits<float>::infinity()
+#endif
+  
+
   
   template<typename /* scalar type */T, int /*! dimension */D>
   struct vec_t_data {
@@ -438,13 +450,13 @@ namespace cuBQL {
     inline float __ull2float_rd(uint64_t ul) {
       float f = float(ul);
       if ((uint64_t)f > ul)
-        f = nextafterf(f,-INFINITY);
+        f = nextafterf(f,-CUBQL_INF);
       return f;
     }
     inline float __udouble2float_rd(double ud) {
       float f = float(ud);
       if ((uint64_t)f > ud)
-        f = nextafterf(f,-INFINITY);
+        f = nextafterf(f,-CUBQL_INF);
       return f;
     }
   }
