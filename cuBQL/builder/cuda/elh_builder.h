@@ -96,7 +96,7 @@ namespace cuBQL {
                      int &splitBin,
                      const ELHBins<T,D> &elh)
     {
-      float bestCost = INFINITY;
+      float bestCost = CUBQL_INF;
 
       float rLengths[elh.numBins];
       for (int d=0;d<D;d++) {

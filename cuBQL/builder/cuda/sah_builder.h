@@ -67,7 +67,7 @@ namespace cuBQL {
                      int &splitBin,
                      const SAHBins &sah)
     {
-      float bestCost = INFINITY;
+      float bestCost = CUBQL_INF;
       
       float rAreas[sah.numBins];
       for (int d=0;d<3;d++) {
