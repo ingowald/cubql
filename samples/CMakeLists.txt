@@ -40,7 +40,7 @@ if (CUBQL_HAVE_CUDA)
     )
   set_target_properties(cuBQL_sample02_distanceToTriangleMesh
     PROPERTIES
-    CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}
+    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
     )
 endif()
 

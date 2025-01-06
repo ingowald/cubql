@@ -61,7 +61,7 @@ function(add_specific_instantiation device suffix T D)
       )
     set_target_properties(cuBQL_${device}_${T}${D}
       PROPERTIES
-      CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}
+      CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
       )
   endif()
   set_target_properties(cuBQL_${device}_${T}${D}
@@ -92,7 +92,7 @@ function(add_specific_instantiation device suffix T D)
       )
     set_target_properties(cuBQL_${device}_${T}${D}_static
       PROPERTIES
-      CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}
+      CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
       )
   endif()
   set_target_properties(cuBQL_${device}_${T}${D}_static

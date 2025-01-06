@@ -26,7 +26,7 @@ if (CUBQL_HAVE_CUDA)
     )
   set_target_properties(cuBQL_sample01_points_closestPoint_cuda
     PROPERTIES
-    CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}
+    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
     )
 
 
@@ -41,6 +41,6 @@ if (CUBQL_HAVE_CUDA)
     )
   set_target_properties(cuBQL_sample01_points_closestPoint_wideBVH_cuda
     PROPERTIES
-    CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}
+    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
     )
 endif()

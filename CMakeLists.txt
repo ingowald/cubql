@@ -28,19 +28,19 @@ if (CMAKE_CUDA_COMPILER)
   message("#cuBQL: CUDA _FOUND_! building both cuda and host libs")
 
   # iw - do NOT use an 'option' - they can't do strings
-  set(CUBQL_CUDA_ARCHITECTURES "auto" CACHE STRING
-    "Which CUDA architecture to build for")
-  if (CUBQL_CUDA_ARCHITECTURES STREQUAL "auto")
-    if (CMAKE_CUDA_ARCHITECTURES)
-      set(CUBQL_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})
-    else()
-      # since cmake 3.23
-      set (CUBQL_CUDA_ARCHITECTURES all-major)
-    endif()
-    message("#cuBQL: cuda-archs set to 'auto': selected ${CUBQL_CUDA_ARCHITECTURES}")
-  else()
-    message("#cuBQL: cuda-archs explicitly set to ${CUBQL_CUDA_ARCHITECTURES}")
-  endif()
+#  set(CUBQL_CUDA_ARCHITECTURES "auto" CACHE STRING
+#    "Which CUDA architecture to build for")
+#  if (CUBQL_CUDA_ARCHITECTURES STREQUAL "auto")
+#    if (CMAKE_CUDA_ARCHITECTURES)
+#      set(CUBQL_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})
+#    else()
+#      # since cmake 3.23
+#      set (CUBQL_CUDA_ARCHITECTURES "all-major")
+#    endif()
+#    message("#cuBQL: cuda-archs set to 'auto': selected ${CUBQL_CUDA_ARCHITECTURES}")
+#  else()
+#    message("#cuBQL: cuda-archs explicitly set to ${CUBQL_CUDA_ARCHITECTURES}")
+#  endif()
   enable_language(CUDA)
   set(CUBQL_HAVE_CUDA ON)
 else()
@@ -67,7 +67,7 @@ endif()
 
 if (CUBQL_IS_SUBPROJECT)
   if (NOT CMAKE_CUDA_ARCHITECTURES)
-    message(WARNING
+    message(FATAL_ERROR
       "#cuBQL: you've included cuBQL as a subproject, but "
       "CMAKE_CUDA_ARCHITECTURES "
       "is not set. cuBQL will automatically set some useful arch flags"
@@ -77,14 +77,22 @@ if (CUBQL_IS_SUBPROJECT)
       "errors like 'CUDA_ARCHITECTURES not set for ...'. "
       "Unless you already know what you're doing, most likely what"
       "you want is to add a like like\n"
-      "   set(CMAKE_CUDA_ARCHITECTURES all-native)\n"
+      "   set(CMAKE_CUDA_ARCHITECTURES \"all-major\")\n"
+      "or"
+      "   set(CMAKE_CUDA_ARCHITECTURES \"native\")\n"
       "into your CMakeLists.txt."
       )
   endif()
 else()
-  # make sure we set this only for ourselves, and do not pollute
-  # parent project's settings
-  set(CMAKE_CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES})
+  if(${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.24)
+    # "native" and "all-major" were introduced in cmake 3.24, older
+    # versions dont' have that :-/
+    set(CUBQL_CUDA_ARCHITECTURES "native" CACHE STRING
+      "Which CUDA architecture to build for")
+    set(CMAKE_CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES})
+  else()
+    set(CMAKE_CUDA_ARCHITECTURES OFF)
+  endif()
 endif()
 
 
