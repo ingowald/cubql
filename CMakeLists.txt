@@ -83,7 +83,7 @@ if (CUBQL_IS_SUBPROJECT)
   if (NOT CUBQL_CUDA_ARCHITECTURES)
     message(
       "#cuBQL: WARNING: you've included cuBQL as a subproject, but\n"
-      "CUQBL_CUDA_ARCHITECTURES is not set. As it is almost certainly\n"
+      "CUBQL_CUDA_ARCHITECTURES is not set. As it is almost certainly\n"
       "going to cause some problems in your project if we were\n."
       "to build for different archs thatn your main project, we will not\n"
       "do so. Before including cuBQL you should set the cmake variable\n"
