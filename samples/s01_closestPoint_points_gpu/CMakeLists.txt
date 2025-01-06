@@ -24,10 +24,6 @@ if (CUBQL_HAVE_CUDA)
     # common samples stuff
     cuBQL_samples_common
     )
-  set_target_properties(cuBQL_sample01_points_closestPoint_cuda
-    PROPERTIES
-    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
-    )
 
 
   add_executable(cuBQL_sample01_points_closestPoint_wideBVH_cuda
@@ -38,9 +34,5 @@ if (CUBQL_HAVE_CUDA)
     cuBQL_cuda_float3
     # common samples stuff
     cuBQL_samples_common
-    )
-  set_target_properties(cuBQL_sample01_points_closestPoint_wideBVH_cuda
-    PROPERTIES
-    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
     )
 endif()

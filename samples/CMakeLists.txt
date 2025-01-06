@@ -38,10 +38,6 @@ if (CUBQL_HAVE_CUDA)
     # common samples stuff
     cuBQL_samples_common
     )
-  set_target_properties(cuBQL_sample02_distanceToTriangleMesh
-    PROPERTIES
-    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
-    )
 endif()
 
 

@@ -19,6 +19,7 @@ cmake_minimum_required(VERSION 3.16)
 
 
 cmake_policy(SET CMP0048 NEW)
+set(CMAKE_BUILD_TYPE_INIT "Release")
 project(cuBQL VERSION 1.0.0 LANGUAGES C CXX)
 
 
@@ -65,42 +66,47 @@ endif()
 
 
 
+# ------------------------------------------------------------------
+# check if we're a subproject, and if so, only include the library
+# itself
+# ------------------------------------------------------------------
 if (CUBQL_IS_SUBPROJECT)
-  if (NOT CMAKE_CUDA_ARCHITECTURES)
-    message(FATAL_ERROR
-      "#cuBQL: you've included cuBQL as a subproject, but "
-      "CMAKE_CUDA_ARCHITECTURES "
-      "is not set. cuBQL will automatically set some useful arch flags"
-      "propagating target properties to libs that use that target we"
-      "cannot automatically set the proper arch flags for ,"
-      "your own targets, which will likely lead to some CUDA  "
-      "errors like 'CUDA_ARCHITECTURES not set for ...'. "
-      "Unless you already know what you're doing, most likely what"
-      "you want is to add a like like\n"
-      "   set(CMAKE_CUDA_ARCHITECTURES \"all-major\")\n"
+  # ------------------------------------------------------------------
+  # we're included from a parent project; it's this parent project's
+  # job to project-specific configs like configure output paths and
+  # build type, and to set CUQBL_CUDA_ARCHITECTURES to whatever
+  # arch(s) the project wants us to build for.
+  #
+  # Check if CUBQL_CUDA_ARCHITECTURES is set, and throw an error if
+  # not
+  # ------------------------------------------------------------------
+  if (NOT CUBQL_CUDA_ARCHITECTURES)
+    message(
+      "#cuBQL: WARNING: you've included cuBQL as a subproject, but\n"
+      "CUQBL_CUDA_ARCHITECTURES is not set. As it is almost certainly\n"
+      "going to cause some problems in your project if we were\n."
+      "to build for different archs thatn your main project, we will not\n"
+      "do so. Before including cuBQL you should set the cmake variable\n"
+      "CUBQL_CUDA_ARCHITECTURES to whatever the main project\n"
+      "is being built with. If in doubt as to what to use, for\n"
+      "cmake >= 3.24 you can also use\n"
+      "   set(CUBQL_CUDA_ARCHITECTURES \"all-major\")\n"
+      "   add_subdirectory(<path-to-cubql) ...)\n"
       "or"
-      "   set(CMAKE_CUDA_ARCHITECTURES \"native\")\n"
-      "into your CMakeLists.txt."
+      "   set(CUBQL_CUDA_ARCHITECTURES \"native\")\n"
+      "   add_subdirectory(<path-to-cubql) ...)\n"
       )
   endif()
 else()
-  if(${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.24)
-    # "native" and "all-major" were introduced in cmake 3.24, older
-    # versions dont' have that :-/
-    set(CUBQL_CUDA_ARCHITECTURES "native" CACHE STRING
-      "Which CUDA architecture to build for")
-    set(CMAKE_CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES})
+  if (${CMAKE_VERSION} VERSION_LESS 3.24)
+    set(CUBQL_CUDA_ARCHITECTURES_INIT "70;80")
   else()
-    set(CMAKE_CUDA_ARCHITECTURES OFF)
+    set(CUBQL_CUDA_ARCHITECTURES_INIT "native")
   endif()
-endif()
+  set(CUBQL_CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES_INIT} CACHE STRING
+    "Which CUDA architecture to build for")
+  message("CUBQL_CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}")
 
-
-# ------------------------------------------------------------------
-# general cmake project configs
-# ------------------------------------------------------------------
-if (CUBQL_IS_SUBPROJECT)
-else()
   if(NOT SET_UP_CONFIGURATIONS_DONE)
     set(SET_UP_CONFIGURATIONS_DONE 1)
 
@@ -121,6 +127,8 @@ else()
   SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
   SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
   SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  # we're building locally - set 'global' cuda arch for samples and test cases
+  SET(CMAKE_CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES})
 endif()
 
 add_subdirectory(cuBQL)
