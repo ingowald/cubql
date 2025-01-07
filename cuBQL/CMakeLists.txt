@@ -51,7 +51,6 @@ target_include_directories(cuBQL INTERFACE
 # type-specific targets will, in fact, only contain instantiations of
 # the specific builders for the given type and device
 function(add_specific_instantiation device suffix T D)
-  message("CUDA_ARCHITECTURES ${CUBQL_CUDA_ARCHITECTURES}")
   add_library(cuBQL_${device}_${T}${D} SHARED EXCLUDE_FROM_ALL
     impl/instantiate_builders.${suffix}
     )
@@ -60,10 +59,10 @@ function(add_specific_instantiation device suffix T D)
       PUBLIC
       -DCUBQL_HAVE_CUDA=1
       )
-    set_target_properties(cuBQL_${device}_${T}${D}
-      PROPERTIES
-      CUDA_ARCHITECTURES "${CUBQL_CUDA_ARCHITECTURES}"
-      )
+#    set_target_properties(cuBQL_${device}_${T}${D}
+#      PROPERTIES
+#      CUDA_ARCHITECTURES "${CUBQL_CUDA_ARCHITECTURES}"
+#      )
   endif()
   set_target_properties(cuBQL_${device}_${T}${D}
     PROPERTIES
@@ -91,10 +90,10 @@ function(add_specific_instantiation device suffix T D)
       PROPERTIES
       POSITION_INDEPENDENT_CODE ON
       )
-    set_target_properties(cuBQL_${device}_${T}${D}_static
-      PROPERTIES
-      CUDA_ARCHITECTURES "${CUBQL_CUDA_ARCHITECTURES}"
-      )
+#    set_target_properties(cuBQL_${device}_${T}${D}_static
+#      PROPERTIES
+#      CUDA_ARCHITECTURES "${CUBQL_CUDA_ARCHITECTURES}"
+#      )
   endif()
   set_target_properties(cuBQL_${device}_${T}${D}_static
     PROPERTIES
