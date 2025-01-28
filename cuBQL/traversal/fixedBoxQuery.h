@@ -41,25 +41,25 @@ namespace cuBQL {
       CUBQL_CONTINUE_TRAVERSAL
     */
     template<typename T, int D, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachPrim(const Lambda &lambdaToCallOnEachPrim,
                      const BinaryBVH<T,D> bvh,
                      const box3f queryBox);
   
     template<typename T, int D, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachLeaf(const Lambda &lambdaToCallOnEachPrim,
                      const BinaryBVH<T,D> bvh,
                      const box3f queryBox);
   
     template<typename T, int D, int W, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachPrim(const Lambda &lambdaToCallOnEachPrim,
                      const WideBVH<T,D,W> bvh,
                      const box3f queryBox);
   
     template<typename T, int D, int W, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachLeaf(const Lambda &lambdaToCallOnEachPrim,
                      const WideBVH<T,D,W> bvh,
                      const box3f queryBox);
@@ -72,7 +72,7 @@ namespace cuBQL {
     // ==================================================================
 
     template<typename T, int D, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachLeaf(const Lambda &lambdaToCallOnEachLeaf,
                      const BinaryBVH<T,D> bvh,
                      const box3f queryBox)
@@ -140,7 +140,7 @@ namespace cuBQL {
     }
 
     template<typename T, int D, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachPrim(const Lambda &lambdaToCallOnEachPrim,
                      const BinaryBVH<T,D> bvh,
                      const box3f queryBox)
@@ -160,7 +160,7 @@ namespace cuBQL {
 
 
     template<typename T, int D, int W, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachLeaf(const Lambda &lambdaToCallOnEachLeaf,
                      const WideBVH<T,D,W> bvh,
                      const box3f queryBox)
@@ -260,7 +260,7 @@ namespace cuBQL {
     }
 
     template<typename T, int D, int W, typename Lambda>
-    inline __device__
+    inline __cubql_both
     void forEachPrim(const Lambda &lambdaToCallOnEachPrim,
                      const WideBVH<T,D,W> bvh,
                      const box3f queryBox)
