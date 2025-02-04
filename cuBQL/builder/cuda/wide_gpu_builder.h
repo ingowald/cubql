@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "cuBQL/builder/cuda/builder_common.h"
+
 namespace cuBQL {
   namespace gpuBuilder_impl {
     
